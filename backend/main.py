@@ -65,3 +65,36 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
     db.delete(db_product)
     db.commit()
     return {"message": "Product deleted successfully"}
+
+
+@app.get("/analytics/summary")
+def get_summary(db: Session = Depends(get_db)):
+    products = db.query(models.Product).all()
+    
+    total_products = len(products)
+    total_stock = sum(p.stock for p in products)
+    total_inventory_value = sum(p.price * p.stock for p in products)
+    
+    return {
+        "total_products": total_products,
+        "total_stock": total_stock,
+        "total_inventory_value": round(total_inventory_value, 2)
+    }
+
+@app.get("/analytics/by-category")
+def get_by_category(db: Session = Depends(get_db)):
+    products = db.query(models.Product).all()
+    
+    category_data = {}
+    for p in products:
+        if p.category not in category_data:
+            category_data[p.category] = {"count": 0, "total_value": 0}
+        category_data[p.category]["count"] += 1
+        category_data[p.category]["total_value"] += p.price * p.stock
+    
+    return category_data
+
+@app.get("/analytics/low-stock")
+def get_low_stock(db: Session = Depends(get_db)):
+    low_stock = db.query(models.Product).filter(models.Product.stock < 10).all()
+    return low_stock
