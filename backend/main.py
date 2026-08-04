@@ -5,6 +5,13 @@ from pydantic import BaseModel
 from typing import Optional
 import models
 from database import engine, get_db
+import os
+from google import genai
+from dotenv import load_dotenv
+
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '.env'))
+api_key = os.getenv("GEMINI_API_KEY")
+client = genai.Client(api_key=api_key)
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -98,3 +105,19 @@ def get_by_category(db: Session = Depends(get_db)):
 def get_low_stock(db: Session = Depends(get_db)):
     low_stock = db.query(models.Product).filter(models.Product.stock < 10).all()
     return low_stock
+class ChatMessage(BaseModel):
+    message: str
+
+
+@app.post("/ai/chat")
+async def ai_chat(chat: ChatMessage):
+    prompt = f"""You are an AI assistant for an e-commerce seller dashboard. 
+    Answer only business related questions about e-commerce, products, sales, 
+    pricing, and inventory management. Keep answers short and practical.
+    Seller's question: {chat.message}"""
+    
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=prompt
+    )
+    return {"reply": response.text}
