@@ -10,3 +10,4 @@ class Product(Base):
     price = Column(Float, nullable=False)
     stock = Column(Integer, nullable=False)
     description = Column(String, nullable=True)
+    image_url = Column(String, nullable=True)

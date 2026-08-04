@@ -1,3 +1,5 @@
+from fastapi import FastAPI, Depends, HTTPException, File, UploadFile
+from fastapi.staticfiles import StaticFiles
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -8,6 +10,7 @@ from database import engine, get_db
 import os
 import httpx
 from dotenv import load_dotenv
+import shutil
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '.env'))
 api_key = os.getenv("GEMINI_API_KEY")
@@ -26,6 +29,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+os.makedirs("product_images", exist_ok=True)
+app.mount("/images", StaticFiles(directory="product_images"), name="images")
 
 # Product Schema
 class ProductCreate(BaseModel):
@@ -141,7 +147,26 @@ async def generate_social_post(product_name: str, price: float, category: str):
     Product: {product_name}
     Category: {category}  
     Price: ₹{price}
-    
     Include relevant emojis and 5-7 hashtags. Keep it under 150 words."""
     
-    # same httpx call as chat
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={api_key}"
+    payload = {
+        "contents": [{
+            "parts": [{"text": prompt}]
+        }]
+    }
+    async with httpx.AsyncClient(timeout=30.0) as http_client:
+        response = await http_client.post(url, json=payload)
+        result = response.json()
+        if "candidates" not in result:
+            return {"error": result}
+        caption = result["candidates"][0]["content"]["parts"][0]["text"]
+        return {"caption": caption}
+
+@app.post("/products/{product_id}/upload-image")
+async def upload_image(product_id: int, file: UploadFile = File(...)):
+    os.makedirs("product_images", exist_ok=True)
+    file_path = f"product_images/{product_id}_{file.filename}"
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    return {"image_url": file_path}
