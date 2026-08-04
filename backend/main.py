@@ -6,12 +6,11 @@ from typing import Optional
 import models
 from database import engine, get_db
 import os
-from google import genai
+import httpx
 from dotenv import load_dotenv
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '.env'))
 api_key = os.getenv("GEMINI_API_KEY")
-client = genai.Client(api_key=api_key)
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -105,6 +104,7 @@ def get_by_category(db: Session = Depends(get_db)):
 def get_low_stock(db: Session = Depends(get_db)):
     low_stock = db.query(models.Product).filter(models.Product.stock < 10).all()
     return low_stock
+
 class ChatMessage(BaseModel):
     message: str
 
@@ -116,8 +116,21 @@ async def ai_chat(chat: ChatMessage):
     pricing, and inventory management. Keep answers short and practical.
     Seller's question: {chat.message}"""
     
-    response = client.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=prompt
-    )
-    return {"reply": response.text}
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+    
+    payload = {
+        "contents": [{
+            "parts": [{"text": prompt}]
+        }]
+    }
+    
+    async with httpx.AsyncClient(timeout=30.0) as http_client:
+        response = await http_client.post(url, json=payload)
+        result = response.json()
+        
+        # This will show us exactly what Gemini returned
+        if "candidates" not in result:
+            return {"error": result}
+        
+        reply = result["candidates"][0]["content"]["parts"][0]["text"]
+        return {"reply": reply}
