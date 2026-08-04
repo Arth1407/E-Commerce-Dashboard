@@ -134,3 +134,14 @@ async def ai_chat(chat: ChatMessage):
         
         reply = result["candidates"][0]["content"]["parts"][0]["text"]
         return {"reply": reply}
+
+@app.post("/ai/social-post")
+async def generate_social_post(product_name: str, price: float, category: str):
+    prompt = f"""Create an engaging Instagram post caption for:
+    Product: {product_name}
+    Category: {category}  
+    Price: ₹{price}
+    
+    Include relevant emojis and 5-7 hashtags. Keep it under 150 words."""
+    
+    # same httpx call as chat
