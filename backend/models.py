@@ -11,3 +11,4 @@ class Product(Base):
     stock = Column(Integer, nullable=False)
     description = Column(String, nullable=True)
     image_url = Column(String, nullable=True)
+    expiry_date = Column(String, nullable=True)

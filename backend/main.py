@@ -40,6 +40,8 @@ class ProductCreate(BaseModel):
     price: float
     stock: int
     description: Optional[str] = None
+    image_url: Optional[str] = None
+    expiry_date: Optional[str] = None
 
 # Routes
 @app.get("/")
@@ -170,3 +172,15 @@ async def upload_image(product_id: int, file: UploadFile = File(...)):
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
     return {"image_url": file_path}
+
+@app.get("/analytics/expiring-soon")
+def get_expiring_soon(db: Session = Depends(get_db)):
+    from datetime import datetime, timedelta
+    today = datetime.today().strftime('%Y-%m-%d')
+    thirty_days = (datetime.today() + timedelta(days=30)).strftime('%Y-%m-%d')
+    products = db.query(models.Product).filter(
+        models.Product.expiry_date != None,
+        models.Product.expiry_date <= thirty_days,
+        models.Product.expiry_date >= today
+    ).all()
+    return products
